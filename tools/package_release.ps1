@@ -10,7 +10,7 @@
 #   cargo build --release --manifest-path rust\compiler\Cargo.toml
 #   cargo build --release --manifest-path rust\launcher\Cargo.toml
 #   cmake -S thirdparty\rexglue-sdk -B out\sdk ... && cmake --build out\sdk
-# then:  tools\package_release.ps1 -SdkBin out\sdk\sdk-bin
+# then:  tools\package_release.ps1 -SdkBin out\sdk\
 param(
     # Where rexgluerd.exe and the runtime DLLs were built. Defaults to this
     # repo's own lean build; point it elsewhere to reuse another build tree.
@@ -45,10 +45,6 @@ if (-not $rexglue) {
 
 # --- front-ends, required ------------------------------------------------------
 $bins = @(
-    (Join-Path $repo 'rust\launcher\target\release\DOA4Launcher.exe'),
-    (Join-Path $repo 'rust\launcher\target\release\DOA4Launcher-tui.exe'),
-    (Join-Path $repo 'rust\compiler\target\release\compiler.exe'),
-    (Join-Path $repo 'rust\compiler\target\release\compiler-tui.exe'),
     (Join-Path $repo 'tools\extract-xiso.exe'),
     (Join-Path $repo 'tools\extract-xiso-LICENSE.txt'),
     $rexglue
