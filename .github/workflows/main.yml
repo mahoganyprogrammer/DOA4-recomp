@@ -135,9 +135,7 @@ jobs:
         with:
           name: build-${{ matrix.preset }}
           path: |
-            out/**/*.exe
-            out/**/*.zip
-            rust/compiler/target/release/*.exe
-            rust/launcher/target/release/*.exe
+            publish/*.zip
+            publish/**/*.exe
           if-no-files-found: warn
           retention-days: 7
