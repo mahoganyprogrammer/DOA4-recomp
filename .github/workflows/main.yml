@@ -10,6 +10,10 @@ on:
 env:
   NINJA_VERSION: "1.11.1"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build (${{ matrix.preset }})
@@ -20,32 +24,44 @@ jobs:
         include:
           - preset: win-amd64-relwithdebinfo-lean
             sdk_type: RelWithDebInfo
-               
-      steps:
+
+    steps:
       - name: Checkout (with submodules)
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0
+          fetch-depth: 1
+
+      # ---- caches ----------------------------------------------------------
       - name: Cache ccache
         uses: actions/cache@v4
         with:
-        path: ~/.ccache
-        key: ccache-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cmake') }}
-       # list syntax — no trailing newline ambiguity
-       restore-keys:  
-       - ccache-${{ runner.os }}-
-      # ---- Toolchain -------------------------------------------------------
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-${{ github.sha }}
+          restore-keys:
+              - ccache-${{ runner.os }}-
+
+      - name: Cache CMake FetchContent (FidelityFX, etc.)
+        uses: actions/cache@v4
+        with:
+          path: |
+            out/sdk/_deps
+            out/_deps
+          key: fetchcontent-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'thirdparty/rexglue-sdk/CMakeLists.txt') }}
+          restore-keys:
+            - fetchcontent-${{ runner.os }}-
+
+      
+
+      # ---- toolchain -------------------------------------------------------
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v5
         with:
           version: ${{ env.NINJA_VERSION }}
 
-      - name: Install LLVM/Clang
+      - name: Verify LLVM/Clang
         shell: pwsh
         run: |
-          # The build expects clang/clang++ on PATH targeting MSVC.
-          # windows-2022 images ship LLVM already; verify it's there.
           clang --version
           clang++ --version
 
@@ -54,132 +70,75 @@ jobs:
         with:
           arch: x64
 
-      # ---- Verify dump is present -----------------------------------------
+      # ---- inputs ----------------------------------------------------------
       - name: Verify game dump
         shell: pwsh
         run: |
           if (-not (Test-Path "assets\game\doa4.xex")) {
-            Write-Error "assets\game\doa4.xex not found. Commit your dump to assets/game/doa4.xex."
+            Write-Error "assets\game\doa4.xex not found."
             exit 1
           }
           Get-Item "assets\game\doa4.xex" | Format-List Name, Length
 
-      # ---- Cache -----------------------------------------------------------
-      - name: Cache CMake FetchContent (FidelityFX, etc.)
-        uses: actions/cache@v4
-        with:
-          path: |
-            out/sdk/_deps
-            out/_deps
-          key: fetchcontent-${{ runner.os }}-${{ hashFiles('**/CMakeLists.txt', '**/*.cmake') }}
-          restore-keys: |
-            fetchcontent-${{ runner.os }}-
+      # ---- rust tools ------------------------------------------------------
+   
 
-      - name: Cache Rust
-        if: false
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: |
-            rust/compiler
-            rust/launcher
-
-      # ---- Rust tools (launcher + compiler, no game data needed) -----------
-      - name: Test Rust tools
-        if: false
-        run: |
-          cargo test --manifest-path rust\compiler\Cargo.toml
-          cargo test --manifest-path rust\launcher\Cargo.toml
-
-      - name: Build Rust tools (release)
-        if: false
-        run: |
-          cargo build --release --manifest-path rust\compiler\Cargo.toml
-          cargo build --release --manifest-path rust\launcher\Cargo.toml
-
-      # ---- Build SDK codegen tool -----------------------------------------
+      # ---- SDK / codegen ---------------------------------------------------
       - name: Configure SDK
-        if: false
+        shell: pwsh
         run: |
           cmake -S thirdparty\rexglue-sdk -B out\sdk -G Ninja `
             -DCMAKE_BUILD_TYPE=${{ matrix.sdk_type }} `
             -DCMAKE_C_COMPILER=clang `
             -DCMAKE_CXX_COMPILER=clang++ `
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache `
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache `
             -DREXGLUE_BUILD_TESTS=OFF `
             "-DCMAKE_C_FLAGS=-march=x86-64-v3" `
             "-DCMAKE_CXX_FLAGS=-march=x86-64-v3"
 
       - name: Build SDK (rexglue target)
-        if: false
         run: cmake --build out\sdk --target rexglue
 
-      # ---- Run codegen -----------------------------------------------------
       - name: Run codegen
         shell: pwsh
         run: |
-          Write-Host "=== cwd ==="
-          Get-Location
-          Write-Host "=== repo root ==="
-          Get-ChildItem -Force | Select-Object Mode, Length, Name
-          Write-Host "=== out\sdk (exe should be here) ==="
-          if (Test-Path "out\sdk") {
-            Get-ChildItem -Force "out\sdk" | Select-Object Mode, Length, Name
-          } else {
-            Write-Host "out\sdk DOES NOT EXIST"
+          $exe = ".\out\sdk\rexgluerd.exe"
+          if (-not (Test-Path $exe)) {
+            $exe = (Get-ChildItem -Recurse -Filter rexgluerd.exe -ErrorAction SilentlyContinue |
+                    Select-Object -First 1).FullName
           }
-          Write-Host "=== manifest ==="
-          if (Test-Path ".\doa4retail_manifest.toml") {
-            Get-Item ".\doa4retail_manifest.toml" | Format-List FullName, Length
-          } else {
-            Write-Host "doa4retail_manifest.toml NOT FOUND in cwd"
-            Get-ChildItem -Recurse -Filter doa4retail_manifest.toml -ErrorAction SilentlyContinue |
-              Select-Object FullName
+          if (-not $exe -or -not (Test-Path $exe)) {
+            Write-Error "rexgluerd.exe not found anywhere"
+            exit 1
           }
-          Write-Host "=== rexgluerd.exe ==="
-          if (Test-Path ".\out\sdk\rexgluerd.exe") {
-            Get-Item ".\out\sdk\rexgluerd.exe" | Format-List FullName, Length
-          } else {
-            Write-Host "rexgluerd.exe NOT FOUND"
-            Get-ChildItem -Recurse -Filter rexgluerd.exe -ErrorAction SilentlyContinue |
-              Select-Object FullName
-          }
-          Write-Host "=== running codegen ==="
-          & ".\out\sdk\rexgluerd.exe" codegen ".\doa4retail_manifest.toml"
+          Write-Host "Using $exe"
+          & $exe codegen ".\doa4retail_manifest.toml"
           if ($LASTEXITCODE -ne 0) {
             Write-Error "codegen failed with exit code $LASTEXITCODE"
             exit $LASTEXITCODE
           }
 
-      # ---- Build the game --------------------------------------------------
+      # ---- game ------------------------------------------------------------
       - name: Configure game
         run: cmake --preset ${{ matrix.preset }}
 
       - name: Build game
         run: cmake --build --preset ${{ matrix.preset }}
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-${{ matrix.preset }}
-          path: |
-            out/**.exe
-            out/**.zip
-            rust/compiler/target/release/*.exe
-            rust/launcher/target/release/*.exe
-          if-no-files-found: warn
-          retention-days: 14
-      # ---- Package ---------------------------------------------------------
+
+      # ---- package + upload ------------------------------------------------
       - name: Package release zip
         shell: pwsh
-        run: |
-          powershell -File tools\package_release.ps1 -SdkBin out\sdk
+        run: powershell -File tools\package_release.ps1 -SdkBin out\sdk\sdk-bin
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: build-${{ matrix.preset }}
           path: |
-            out/**.exe
-            out/**.zip
+            out/**/*.exe
+            out/**/*.zip
             rust/compiler/target/release/*.exe
             rust/launcher/target/release/*.exe
           if-no-files-found: warn
-          retention-days: 14
+          retention-days: 7
