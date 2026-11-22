@@ -148,12 +148,22 @@ jobs:
 
       - name: Build game
         run: cmake --build --preset ${{ matrix.preset }}
-
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.preset }}
+          path: |
+            out/**.exe
+            out/**.zip
+            rust/compiler/target/release/*.exe
+            rust/launcher/target/release/*.exe
+          if-no-files-found: warn
+          retention-days: 14
       # ---- Package ---------------------------------------------------------
       - name: Package release zip
         shell: pwsh
         run: |
-          powershell -File tools\package_release.ps1 -SdkBin out\sdk\sdk-bin
+          powershell -File tools\package_release.ps1 -SdkBin out\sdk
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
