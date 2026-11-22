@@ -57,15 +57,7 @@ jobs:
         run: |
           Get-ChildItem -Recurse -Filter "*.exe" -ErrorAction SilentlyContinue |
             Select-Object FullName, Length
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-${{ matrix.preset }}
-          path: |
-             out/**/*.exe
-             publish/**/*.exe
-          if-no-files-found: warn
-          retention-days: 7
+     
       - name: Fix dump location
         shell: pwsh
         run: |
@@ -85,7 +77,13 @@ jobs:
               exit 1
                 }
               Get-Item "assets\game\doa4.xex" | Format-List FullName, Length
-
+      - name: Cache CMake build tree (out/)
+        uses: actions/cache@v4
+        with:
+          path: out
+          key: out-${{ runner.os }}-${{ matrix.preset }}-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'src/**', 'thirdparty/rexglue-sdk/CMakeLists.txt') }}
+          restore-keys: |
+            out-${{ runner.os }}-${{ matrix.preset }}-
       # ---- toolchain -------------------------------------------------------
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v5
@@ -171,7 +169,7 @@ jobs:
           name: build-${{ matrix.preset }}
           path: |
              out/**/*.exe
-             publish/**/*.exe
+             out/build/${{ matrix.preset }}/*.exe
           if-no-files-found: warn
           retention-days: 7
       # ---- package + upload ------------------------------------------------
