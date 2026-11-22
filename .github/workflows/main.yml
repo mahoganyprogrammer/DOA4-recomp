@@ -20,8 +20,8 @@ jobs:
         include:
           - preset: win-amd64-relwithdebinfo-lean
             sdk_type: RelWithDebInfo
-
-    steps:
+               
+      steps:
       - name: Checkout (with submodules)
         uses: actions/checkout@v4
         with:
