@@ -24,8 +24,16 @@ jobs:
         include:
           - preset: win-amd64-relwithdebinfo-lean
             sdk_type: RelWithDebInfo
-
+                
     steps:
+      - name: Debug dump path
+        shell: pwsh
+        run: |
+            Write-Host "cwd: $(Get-Location)"
+            Get-ChildItem -Recurse -Filter "*.xex" -ErrorAction SilentlyContinue |
+            Select-Object FullName, Length
+            Get-ChildItem assets -Recurse -ErrorAction SilentlyContinue |
+            Select-Object FullName, Length
       - name: Checkout (with submodules)
         uses: actions/checkout@v4
         with:
