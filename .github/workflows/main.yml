@@ -8,7 +8,6 @@ on:
   workflow_dispatch:
 
 env:
-  CMAKE_VERSION: "3.27.x"
   NINJA_VERSION: "1.11.1"
 
 jobs:
@@ -48,6 +47,16 @@ jobs:
         with:
           arch: x64
 
+      # ---- Verify dump is present -----------------------------------------
+      - name: Verify game dump
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "assets\game\doa4.xex")) {
+            Write-Error "assets\game\doa4.xex not found. Commit your dump to assets/game/doa4.xex."
+            exit 1
+          }
+          Get-Item "assets\game\doa4.xex" | Format-List Name, Length
+
       # ---- Cache -----------------------------------------------------------
       - name: Cache CMake FetchContent (FidelityFX, etc.)
         uses: actions/cache@v4
@@ -77,21 +86,6 @@ jobs:
           cargo build --release --manifest-path rust\compiler\Cargo.toml
           cargo build --release --manifest-path rust\launcher\Cargo.toml
 
-      # ---- Codegen ---------------------------------------------------------
-      # NOTE: codegen requires a user-supplied dump (assets\game\doa4.xex).
-      # CI cannot legally/automatically obtain this. To build the *game*
-      # in CI you must provide the dump as an encrypted secret/artifact and
-      # stage it below; otherwise only the SDK + Rust tools are buildable.
-      - name: Stage game dump (optional, from secret)
-        if: ${{ env.DOA4_XEX_BASE64 != '' }}
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path assets\game | Out-Null
-          [IO.File]::WriteAllBytes(
-            "$PWD\assets\game\doa4.xex",
-            [Convert]::FromBase64String("${{ env.DOA4_XEX_BASE64 }}")
-          )
-
       # ---- Build SDK codegen tool -----------------------------------------
       - name: Configure SDK
         run: |
@@ -106,24 +100,19 @@ jobs:
       - name: Build SDK (rexglue target)
         run: cmake --build out\sdk --target rexglue
 
-      # ---- Run codegen (only if dump staged) ------------------------------
+      # ---- Run codegen -----------------------------------------------------
       - name: Run codegen
-        if: ${{ env.DOA4_XEX_BASE64 != '' }}
         run: out\sdk\rexgluerd.exe codegen .\doa4retail_manifest.toml
 
       # ---- Build the game --------------------------------------------------
-      # Skipped when no dump is present; remove the `if` once you supply one.
       - name: Configure game
-        if: ${{ env.DOA4_XEX_BASE64 != '' }}
         run: cmake --preset ${{ matrix.preset }}
 
       - name: Build game
-        if: ${{ env.DOA4_XEX_BASE64 != '' }}
         run: cmake --build --preset ${{ matrix.preset }}
 
       # ---- Package ---------------------------------------------------------
       - name: Package release zip
-        if: ${{ env.DOA4_XEX_BASE64 != '' }}
         shell: pwsh
         run: |
           powershell -File tools\package_release.ps1 -SdkBin out\sdk\sdk-bin
