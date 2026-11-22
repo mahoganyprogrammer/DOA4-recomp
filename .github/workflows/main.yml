@@ -35,11 +35,13 @@ jobs:
 
       # ---- caches ----------------------------------------------------------
       # RIGHT — `-` indented 2 spaces deeper than `restore-keys:`
-          with:
-          path: ~/.ccache
-          key: ccache-${{ runner.os }}-${{ github.sha }}
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: C:\Users\runneradmin\.ccache
+          key: ccache-${{ runner.os }}-v2-${{ github.sha }}
           restore-keys: |
-                 ccache-${{ runner.os }}-
+            ccache-${{ runner.os }}-v2-
                       
       - name: Cache CMake FetchContent (FidelityFX, etc.)
         uses: actions/cache@v4
