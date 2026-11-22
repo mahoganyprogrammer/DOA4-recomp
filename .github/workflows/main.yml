@@ -102,7 +102,7 @@ jobs:
         run: cmake --build out\sdk --target rexglue
 
       # ---- Run codegen -----------------------------------------------------
-            - name: Run codegen
+      - name: Run codegen
         shell: pwsh
         run: |
           Write-Host "=== cwd ==="
