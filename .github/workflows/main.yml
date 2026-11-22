@@ -50,21 +50,27 @@ jobs:
           key: fetchcontent-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'thirdparty/rexglue-sdk/CMakeLists.txt') }}
           restore-keys:  |
             - fetchcontent-${{ runner.os }}-
-      - name: Debug dump path
-        shell: pwsh
-        run: |
-            Write-Host "cwd: $(Get-Location)"
+            - name: Fix dump location
+              shell: pwsh
+              run: |
+              Write-Host "cwd: $(Get-Location)"
+              if (Test-Path ".\~\.ccache\assets\game\doa4.xex") {
+              New-Item -ItemType Directory -Force assets\game | Out-Null
+              Move-Item ".\~\.ccache\assets\game\doa4.xex" assets\game\doa4.xex -Force
+              }
+              if (Test-Path ".\~") {
+              Remove-Item -Recurse -Force ".\~"
+              }
+
+            Write-Host "=== .xex files after fix ==="
             Get-ChildItem -Recurse -Filter "*.xex" -ErrorAction SilentlyContinue |
             Select-Object FullName, Length
-            Get-ChildItem assets -Recurse -ErrorAction SilentlyContinue |
-            Select-Object FullName, Length
-            # in the workflow, right after checkout, before caches
-            if (Test-Path "~\.ccache\assets\game\doa4.xex") {
-            New-Item -ItemType Directory -Force assets\game | Out-Null
-            Move-Item "~\.ccache\assets\game\doa4.xex" assets\game\doa4.xex -Force
-              }
-            Remove-Item -Recurse -Force "~" -ErrorAction SilentlyContinue
-        
+
+            if (-not (Test-Path "assets\game\doa4.xex")) {
+            Write-Error "assets\game\doa4.xex still missing after fix"
+            exit 1
+            }
+            Get-Item "assets\game\doa4.xex" | Format-List FullName, Length
 
       # ---- toolchain -------------------------------------------------------
       - name: Install Ninja
