@@ -82,6 +82,7 @@ jobs:
           cargo test --manifest-path rust\launcher\Cargo.toml
 
       - name: Build Rust tools (release)
+        if: false
         run: |
           cargo build --release --manifest-path rust\compiler\Cargo.toml
           cargo build --release --manifest-path rust\launcher\Cargo.toml
@@ -101,8 +102,41 @@ jobs:
         run: cmake --build out\sdk --target rexglue
 
       # ---- Run codegen -----------------------------------------------------
-      - name: Run codegen
-        run: out\sdk\rexgluerd.exe codegen .\doa4retail_manifest.toml
+            - name: Run codegen
+        shell: pwsh
+        run: |
+          Write-Host "=== cwd ==="
+          Get-Location
+          Write-Host "=== repo root ==="
+          Get-ChildItem -Force | Select-Object Mode, Length, Name
+          Write-Host "=== out\sdk (exe should be here) ==="
+          if (Test-Path "out\sdk") {
+            Get-ChildItem -Force "out\sdk" | Select-Object Mode, Length, Name
+          } else {
+            Write-Host "out\sdk DOES NOT EXIST"
+          }
+          Write-Host "=== manifest ==="
+          if (Test-Path ".\doa4retail_manifest.toml") {
+            Get-Item ".\doa4retail_manifest.toml" | Format-List FullName, Length
+          } else {
+            Write-Host "doa4retail_manifest.toml NOT FOUND in cwd"
+            Get-ChildItem -Recurse -Filter doa4retail_manifest.toml -ErrorAction SilentlyContinue |
+              Select-Object FullName
+          }
+          Write-Host "=== rexgluerd.exe ==="
+          if (Test-Path ".\out\sdk\rexgluerd.exe") {
+            Get-Item ".\out\sdk\rexgluerd.exe" | Format-List FullName, Length
+          } else {
+            Write-Host "rexgluerd.exe NOT FOUND"
+            Get-ChildItem -Recurse -Filter rexgluerd.exe -ErrorAction SilentlyContinue |
+              Select-Object FullName
+          }
+          Write-Host "=== running codegen ==="
+          & ".\out\sdk\rexgluerd.exe" codegen ".\doa4retail_manifest.toml"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "codegen failed with exit code $LASTEXITCODE"
+            exit $LASTEXITCODE
+          }
 
       # ---- Build the game --------------------------------------------------
       - name: Configure game
