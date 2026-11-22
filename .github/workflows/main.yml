@@ -58,7 +58,13 @@ jobs:
             Select-Object FullName, Length
             Get-ChildItem assets -Recurse -ErrorAction SilentlyContinue |
             Select-Object FullName, Length
-      
+            # in the workflow, right after checkout, before caches
+            if (Test-Path "~\.ccache\assets\game\doa4.xex") {
+            New-Item -ItemType Directory -Force assets\game | Out-Null
+            Move-Item "~\.ccache\assets\game\doa4.xex" assets\game\doa4.xex -Force
+              }
+            Remove-Item -Recurse -Force "~" -ErrorAction SilentlyContinue
+        
 
       # ---- toolchain -------------------------------------------------------
       - name: Install Ninja
