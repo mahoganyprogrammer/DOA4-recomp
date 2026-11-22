@@ -104,6 +104,7 @@ jobs:
 
       # ---- SDK / codegen ---------------------------------------------------
       - name: Configure SDK
+        if: false
         shell: pwsh
         run: |
           cmake -S thirdparty\rexglue-sdk -B out\sdk -G Ninja `
@@ -117,6 +118,7 @@ jobs:
             "-DCMAKE_CXX_FLAGS=-march=x86-64-v3"
 
       - name: Build SDK (rexglue target)
+        if: false
         run: cmake --build out\sdk --target rexglue
 
       - name: Run codegen
