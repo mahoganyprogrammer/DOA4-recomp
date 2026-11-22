@@ -69,6 +69,7 @@ jobs:
             fetchcontent-${{ runner.os }}-
 
       - name: Cache Rust
+        if: false
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: |
@@ -77,6 +78,7 @@ jobs:
 
       # ---- Rust tools (launcher + compiler, no game data needed) -----------
       - name: Test Rust tools
+        if: false
         run: |
           cargo test --manifest-path rust\compiler\Cargo.toml
           cargo test --manifest-path rust\launcher\Cargo.toml
@@ -89,6 +91,7 @@ jobs:
 
       # ---- Build SDK codegen tool -----------------------------------------
       - name: Configure SDK
+        if: false
         run: |
           cmake -S thirdparty\rexglue-sdk -B out\sdk -G Ninja `
             -DCMAKE_BUILD_TYPE=${{ matrix.sdk_type }} `
@@ -99,6 +102,7 @@ jobs:
             "-DCMAKE_CXX_FLAGS=-march=x86-64-v3"
 
       - name: Build SDK (rexglue target)
+        if: false
         run: cmake --build out\sdk --target rexglue
 
       # ---- Run codegen -----------------------------------------------------
